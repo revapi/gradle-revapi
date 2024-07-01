@@ -14,7 +14,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.gradle.plugin-publish' version '0.21.0'
+    id 'com.gradle.plugin-publish' version '1.2.1'
     id 'com.palantir.baseline' version '5.61.0'
     id 'com.palantir.consistent-versions' version '2.23.0'
     id 'com.palantir.git-version' version '3.1.0'
@@ -75,14 +75,14 @@ test {
 gradlePlugin {
     website = 'https://github.com/revapi/gradle-revapi'
     vcsUrl = 'https://github.com/revapi/gradle-revapi'
-    description = 'API/ABI backwards compatibility for Java libraries using Revapi'
 
     plugins {
         revapi {
             id = 'org.revapi.revapi-gradle-plugin'
             displayName = 'API/ABI backwards compatibility for Java libraries using Revapi'
+            description = 'API/ABI backwards compatibility for Java libraries using Revapi'
             implementationClass = 'org.revapi.gradle.RevapiPlugin'
-            tags.set(['versions'])
+            tags.set(['versions', 'api', 'abi'])
         }
     }
 }
@@ -92,9 +92,5 @@ tasks.named('processResources').configure {
 }
 
 tasks.publish.dependsOn tasks.publishPlugins
-publishPlugins.onlyIf {
-    versionDetails().isCleanTag
-}
 project.ext.'gradle.publish.key' = System.env["GRADLE_KEY"]
 project.ext.'gradle.publish.secret' = System.env["GRADLE_SECRET"]
-

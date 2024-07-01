@@ -114,3 +114,8 @@ format:
 versionOverrides:
   group:name:version: versionOverride
 ```
+
+### Releasing a new version of the plugin
+
+The current release process is manual and is done via `./gradlew publishPlugins` while locally exporting the env variables `GRADLE_KEY` / `GRADLE_SECRET`.
+This will be updated shortly so that a new release can be triggered via a GitHub action.
