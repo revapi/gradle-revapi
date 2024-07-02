@@ -1,0 +1,25 @@
+
+name: "Release new plugin version"
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'The version to release. The version format is MAJOR.MINOR.PATCH'
+        required: true
+
+jobs:
+  Release new plugin version:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ release_version }}
+      GRADLE_KEY: ${{ secrets.GRADLE_KEY }}
+      GRADLE_SECRET: ${{ secrets.GRADLE_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 11
+      - name: Publish plugin
+        run: ./gradlew publishPlugins

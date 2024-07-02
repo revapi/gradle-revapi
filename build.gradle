@@ -26,9 +26,7 @@ repositories {
 }
 
 group 'org.revapi'
-// TODO read the plugin from GH action
-// version System.env.CIRCLE_TAG ?: gitVersion()
-version '1.8.0'
+version System.env.RELEASE_VERSION ?: gitVersion()
 
 apply plugin: 'com.palantir.external-publish'
 apply plugin: 'java-gradle-plugin'
