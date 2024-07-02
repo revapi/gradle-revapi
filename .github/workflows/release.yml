@@ -8,10 +8,10 @@ on:
         required: true
 
 jobs:
-  Release new plugin version:
+  Release-new-plugin-version:
     runs-on: ubuntu-latest
     env:
-      RELEASE_VERSION: ${{ release_version }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
       GRADLE_KEY: ${{ secrets.GRADLE_KEY }}
       GRADLE_SECRET: ${{ secrets.GRADLE_SECRET }}
     steps:
