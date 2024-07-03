@@ -118,4 +118,4 @@ versionOverrides:
 ### Releasing a new version of the plugin
 
 A new version of the plugin can be released by manually triggering the `Release new plugin version` GH action.
-If necessary, a new version can also be manually released via `./gradlew publishPlugins` while locally exporting the env variables `GRADLE_KEY` / `GRADLE_SECRET`.
+If necessary, a new version can also be manually released via `./gradlew publishPlugins` while locally exporting the env variables `RELEASE_VERSION`, `GRADLE_KEY`, `GRADLE_SECRET`.
