@@ -46,7 +46,12 @@ public final class RevapiPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
         project.getPluginManager().apply(LifecycleBasePlugin.class);
-        project.getPluginManager().apply(JavaPlugin.class);
+        if (!project.getPlugins().hasPlugin("java") &&
+            !project.getPlugins().hasPlugin("java-library") &&
+            !project.getPlugins().hasPlugin("com.android.library") &&
+            !project.getPlugins().hasPlugin("com.android.application")) {
+            project.getPluginManager().apply(JavaPlugin.class);
+        }
 
         RevapiExtension extension = project.getExtensions().create("revapi", RevapiExtension.class, project);
 
