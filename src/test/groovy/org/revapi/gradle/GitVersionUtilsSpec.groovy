@@ -68,17 +68,21 @@ class GitVersionUtilsSpec extends AbstractProjectSpec {
     def 'return a number of tags that are behind a tag'() {
         when:
         git.command 'git commit --allow-empty -m "First"'
-        git.command 'git tag 1'
+        git.command 'git tag 5'
+        // need to sleep for at least a second so each commit is in its own timestamp to ensure sort order is correct
+        sleep(1001)
         git.command 'git commit --allow-empty -m "Second"'
         git.command 'git tag 2'
+        sleep(1001)
         git.command 'git commit --allow-empty -m "Third"'
         git.command 'git tag 3'
+        sleep(1001)
 
         git.command 'git commit --allow-empty -m "Fourth"'
         git.command 'git tag 4'
 
         then:
-        assert previousGitTags() == ["3", "2", "1"]
+        assert previousGitTags() == ["3", "2", "5"]
     }
 
     def 'when the initial commit is 0.0.0, ignore it as its the first, unpublished release'() {
@@ -113,6 +117,7 @@ class GitVersionUtilsSpec extends AbstractProjectSpec {
     }
 
     private List<String> previousGitTags() {
-        GitVersionUtils.previousGitTags(getProject()).collect(Collectors.toList())
+        GitVersionUtils utils = getProject().objects.newInstance(GitVersionUtils.class)
+        utils.previousGitTags().get().collect(Collectors.toList())
     }
 }

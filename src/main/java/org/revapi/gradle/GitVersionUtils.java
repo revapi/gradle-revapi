@@ -16,55 +16,45 @@
 
 package org.revapi.gradle;
 
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
-import java.util.Spliterator;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-import org.gradle.api.Project;
+import javax.inject.Inject;
+import org.gradle.api.file.ProjectLayout;
+import org.gradle.api.provider.Provider;
+import org.gradle.api.provider.ProviderFactory;
+import org.gradle.process.ExecOutput;
 import org.gradle.process.ExecResult;
 import org.immutables.value.Value;
 
-final class GitVersionUtils {
-    private GitVersionUtils() {}
+public abstract class GitVersionUtils {
 
-    public static Stream<String> previousGitTags(Project project) {
-        return StreamSupport.stream(new PreviousGitTags(project), false)
-                .filter(tag -> !isInitial000Tag(project, tag))
-                .map(GitVersionUtils::stripVFromTag);
+    @Inject
+    protected abstract ProviderFactory getProviderFactory();
+
+    @Inject
+    protected abstract ProjectLayout getProjectLayout();
+
+    public final Provider<Stream<String>> previousGitTags() {
+        return execute("git", "tag", "-l", "--merged", "HEAD^", "--sort=-committerdate")
+                .map(tagsResult -> {
+                    if (tagsResult.exitCode() != 0 || tagsResult.stdout().isEmpty()) {
+                        return Stream.<String>empty();
+                    }
+
+                    return Arrays.stream(tagsResult.stdout().split("\n"))
+                            .filter(tag -> !isInitial000Tag(tag))
+                            .map(GitVersionUtils::stripVFromTag);
+                });
     }
 
-    private static Optional<String> previousGitTagFromRef(Project project, String ref) {
-        String beforeLastRef = ref + "^";
-
-        GitResult beforeLastRefTypeResult = execute(project, "git", "cat-file", "-t", beforeLastRef);
-
-        boolean thereIsNoCommitBeforeTheRef = !beforeLastRefTypeResult.stdout().equals("commit");
-        if (thereIsNoCommitBeforeTheRef) {
-            return Optional.empty();
-        }
-
-        GitResult describeResult = execute(project, "git", "describe", "--tags", "--abbrev=0", beforeLastRef);
-
-        if (describeResult.stderr().contains("No tags can describe")
-                || describeResult.stderr().contains("No names found, cannot describe anything")) {
-            return Optional.empty();
-        }
-
-        return Optional.of(describeResult.stdoutOrThrowIfNonZero());
-    }
-
-    private static boolean isInitial000Tag(Project project, String tag) {
+    private boolean isInitial000Tag(String tag) {
         if (!tag.equals("0.0.0")) {
             return false;
         }
 
-        GitResult foo = execute(project, "git", "rev-parse", "--verify", "--quiet", "0.0.0^");
-        boolean parentDoesNotExist = foo.exitCode() != 0;
+        GitResult result = execute("git", "rev-parse", "--verify", "--quiet", "0.0.0^").get();
+        boolean parentDoesNotExist = result.exitCode() != 0;
         return parentDoesNotExist;
     }
 
@@ -76,22 +66,23 @@ final class GitVersionUtils {
         }
     }
 
-    private static GitResult execute(Project project, String... command) {
-        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-
-        ExecResult execResult = project.exec(spec -> {
-            spec.setCommandLine(Arrays.asList(command));
-            spec.setStandardOutput(stdout);
-            spec.setErrorOutput(stderr);
-            spec.setIgnoreExitValue(true);
+    private Provider<GitResult> execute(String... command) {
+        ExecOutput output = getProviderFactory().exec(execSpec -> {
+            execSpec.commandLine((Object[]) command);
+            execSpec.setIgnoreExitValue(true);
+            execSpec.setWorkingDir(getProjectLayout().getProjectDirectory());
         });
 
-        return GitResult.builder()
-                .exitCode(execResult.getExitValue())
-                .stdout(new String(stdout.toByteArray(), StandardCharsets.UTF_8).trim())
-                .stderr(new String(stderr.toByteArray(), StandardCharsets.UTF_8).trim())
-                .build();
+        Provider<String> stdout = output.getStandardOutput().getAsText();
+        Provider<String> stderr = output.getStandardError().getAsText();
+        Provider<ExecResult> result = output.getResult();
+
+        return stdout.zip(stderr, (out, err) -> new Object[] {out, err})
+                .zip(result, (outErr, res) -> GitResult.builder()
+                        .exitCode(res.getExitValue())
+                        .stdout(((String) outErr[0]).trim())
+                        .stderr(((String) outErr[1]).trim())
+                        .build());
     }
 
     @Value.Immutable
@@ -120,43 +111,6 @@ final class GitVersionUtils {
 
         static Builder builder() {
             return new Builder();
-        }
-    }
-
-    private static final class PreviousGitTags implements Spliterator<String> {
-        private final Project project;
-        private String lastSeenRef = "HEAD";
-
-        PreviousGitTags(Project project) {
-            this.project = project;
-        }
-
-        @Override
-        public boolean tryAdvance(Consumer<? super String> action) {
-            Optional<String> tag = previousGitTagFromRef(project, lastSeenRef);
-
-            if (!tag.isPresent()) {
-                return false;
-            }
-
-            lastSeenRef = tag.get();
-            action.accept(lastSeenRef);
-            return true;
-        }
-
-        @Override
-        public Spliterator<String> trySplit() {
-            return null;
-        }
-
-        @Override
-        public long estimateSize() {
-            return Long.MAX_VALUE;
-        }
-
-        @Override
-        public int characteristics() {
-            return 0;
         }
     }
 }
