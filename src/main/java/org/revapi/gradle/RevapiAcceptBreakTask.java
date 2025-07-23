@@ -34,11 +34,21 @@ public abstract class RevapiAcceptBreakTask extends DefaultTask {
     private static final String NEW_OPTION = "new";
     private static final String JUSTIFICATION_OPTION = "justification";
 
-    private final Property<String> code = getProject().getObjects().property(String.class);
-    private final Property<String> oldElement = getProject().getObjects().property(String.class);
-    private final Property<String> newElement = getProject().getObjects().property(String.class);
-    private final Property<Justification> justification =
-            getProject().getObjects().property(Justification.class);
+    @Input
+    @Option(option = CODE_OPTION, description = "Revapi change code")
+    public abstract Property<String> getCode();
+
+    @Input
+    @Option(option = OLD_OPTION, description = "Old API element")
+    public abstract Property<String> getOldElement();
+
+    @Input
+    @Option(option = NEW_OPTION, description = "New API element")
+    public abstract Property<String> getNewElement();
+
+    @Input
+    @Option(option = JUSTIFICATION_OPTION, description = "Justification for why these breaks are ok")
+    public abstract Property<String> getJustificationString();
 
     @Input
     protected abstract Property<GroupNameVersion> getGroupNameVersion();
@@ -46,40 +56,21 @@ public abstract class RevapiAcceptBreakTask extends DefaultTask {
     @Internal
     protected abstract Property<ConfigManager> getConfigManager();
 
-    @Option(option = CODE_OPTION, description = "Revapi change code")
-    public final void setCode(String codeString) {
-        this.code.set(codeString);
-    }
-
-    @Option(option = OLD_OPTION, description = "Old API element")
-    public final void setOldElement(String oldElementString) {
-        this.oldElement.set(oldElementString);
-    }
-
-    @Option(option = NEW_OPTION, description = "New API element")
-    public final void setNewElement(String newElementString) {
-        this.newElement.set(newElementString);
-    }
-
-    @Option(option = JUSTIFICATION_OPTION, description = "Justification for why these breaks are ok")
-    public final void setJustification(String justificationString) {
-        this.justification.set(Justification.fromString(justificationString));
-    }
-
     @TaskAction
     public final void addVersionOverride() {
-        ensurePresent(code, CODE_OPTION);
-        ensurePresent(justification, JUSTIFICATION_OPTION);
+        ensurePresent(getCode(), CODE_OPTION);
+        ensurePresent(getJustificationString(), JUSTIFICATION_OPTION);
 
         getConfigManager()
                 .get()
                 .modifyConfigFile(revapiConfig -> revapiConfig.addAcceptedBreaks(
                         getGroupNameVersion().get(),
                         Collections.singleton(AcceptedBreak.builder()
-                                .code(code.get())
-                                .oldElement(Optional.ofNullable(oldElement.getOrNull()))
-                                .newElement(Optional.ofNullable(newElement.getOrNull()))
-                                .justification(justification.get())
+                                .code(getCode().get())
+                                .oldElement(Optional.ofNullable(getOldElement().getOrNull()))
+                                .newElement(Optional.ofNullable(getNewElement().getOrNull()))
+                                .justification(Justification.fromString(
+                                        getJustificationString().get()))
                                 .build())));
     }
 

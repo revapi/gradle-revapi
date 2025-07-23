@@ -27,33 +27,25 @@ import org.revapi.gradle.config.GroupNameVersion;
 public abstract class RevapiVersionOverrideTask extends DefaultTask {
     public static final String REPLACEMENT_VERSION_OPTION = "replacement-version";
 
-    private final Property<ConfigManager> configManager =
-            getProject().getObjects().property(ConfigManager.class);
-    private final Property<String> replacementVersion =
-            getProject().getObjects().property(String.class);
-
     @Input
     protected abstract Property<GroupNameVersion> getGroupNameVersion();
 
     @Internal
-    final Property<ConfigManager> getConfigManager() {
-        return configManager;
-    }
+    protected abstract Property<ConfigManager> getConfigManager();
 
+    @Input
     @Option(option = REPLACEMENT_VERSION_OPTION, description = "The version to use instead of the default oldVersion")
-    public final void setReplacementVersion(String replacementVersionValue) {
-        replacementVersion.set(replacementVersionValue);
-    }
+    public abstract Property<String> getReplacementVersion();
 
     @TaskAction
     public final void addVersionOverride() {
-        if (!replacementVersion.isPresent()) {
-            throw new RuntimeException("Please supply the --" + REPLACEMENT_VERSION_OPTION + " param this task");
+        if (!getReplacementVersion().isPresent()) {
+            throw new RuntimeException("Please supply the --" + REPLACEMENT_VERSION_OPTION + " param to this task");
         }
 
-        configManager
+        getConfigManager()
                 .get()
-                .modifyConfigFile(config ->
-                        config.addVersionOverride(getGroupNameVersion().get(), replacementVersion.get()));
+                .modifyConfigFile(config -> config.addVersionOverride(
+                        getGroupNameVersion().get(), getReplacementVersion().get()));
     }
 }
