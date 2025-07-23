@@ -16,19 +16,19 @@
 
 package org.revapi.gradle
 
+import com.palantir.gradle.plugintesting.ConfigurationCacheSpec
 import spock.lang.Ignore
 
 import java.util.regex.Pattern
-import nebula.test.IntegrationSpec
-import nebula.test.functional.ExecutionResult
+import org.gradle.testkit.runner.BuildResult
+import org.gradle.testkit.runner.TaskOutcome
 import spock.util.environment.RestoreSystemProperties
 
-class RevapiSpec extends IntegrationSpec {
+class RevapiSpec extends ConfigurationCacheSpec {
     private Git git
 
     def setup() {
         git = new Git(projectDir)
-        System.setProperty("ignoreDeprecations", "true")
     }
 
     def 'fails when comparing produced jar versus some random other jar'() {
@@ -118,17 +118,18 @@ class RevapiSpec extends IntegrationSpec {
             public class Foo extends org.junit.rules.ExternalResource { }
         '''.stripIndent()
 
-        println runTasksSuccessfully("publish").standardOutput
+        println runTasksWithConfigurationCache("publish").output
 
         and:
         buildFile.text = buildFile.text.replace('implementation', 'compileOnly')
 
         then:
 
-        def executionResult = runTasks('revapi')
-        println executionResult.standardOutput
-        println executionResult.standardError
-        executionResult.rethrowFailure()
+        def buildResult = runTasksWithConfigurationCacheAndCheck('revapi')
+        println buildResult.output
+        if (buildResult.task(':revapi').outcome != TaskOutcome.SUCCESS) {
+            throw new RuntimeException("Task failed: ${buildResult.output}")
+        }
     }
 
     def 'revapiAcceptAllBreaks succeeds when there are no breaking changes'() {
@@ -252,9 +253,9 @@ class RevapiSpec extends IntegrationSpec {
         """.stripIndent()
 
         then:
-        def executionResult = runTasksSuccessfully('revapi')
-        executionResult.wasSkipped(':revapiAnalyze')
-        executionResult.wasSkipped(':revapi')
+        def buildResult = runTasksWithConfigurationCacheAndCheck('revapi')
+        assert buildResult.task(':revapiAnalyze').outcome == TaskOutcome.SKIPPED
+        assert buildResult.task(':revapi').outcome == TaskOutcome.SKIPPED
     }
 
     def 'when the previous git tag has failed to publish, it will look back up to a further git tag'() {
@@ -310,8 +311,8 @@ class RevapiSpec extends IntegrationSpec {
         git.command 'git commit -am new-work'
 
         then:
-        def standardError = runTasksWithFailure('revapi').standardError
-        assert standardError.contains('willBeRemoved')
+        def buildResult = runTasksAndFail('revapi')
+        assert buildResult.output.contains('willBeRemoved')
     }
 
     def 'if there are no published versions of the library at all, ./gradlew revapi doesnt fail'() {
@@ -320,9 +321,9 @@ class RevapiSpec extends IntegrationSpec {
         writeHelloWorld()
 
         then:
-        def executionResult = runTasksSuccessfully('revapi')
-        executionResult.wasSkipped(':revapiAnalyze')
-        executionResult.wasSkipped(':revapi')
+        def buildResult = runTasksWithConfigurationCacheAndCheck('revapi')
+        assert buildResult.task(':revapiAnalyze').outcome == TaskOutcome.SKIPPED
+        assert buildResult.task(':revapi').outcome == TaskOutcome.SKIPPED
     }
 
     def 'if there are no published versions of the library at all, ./gradlew revapiAcceptAllBreaks is a no-op'() {
@@ -331,9 +332,9 @@ class RevapiSpec extends IntegrationSpec {
         writeHelloWorld()
 
         then:
-        def executionResult = runTasksSuccessfully('revapiAcceptAllBreaks')
-        executionResult.wasSkipped(':revapiAnalyze')
-        executionResult.wasSkipped(':revapiAcceptAllBreaks')
+        def buildResult = runTasksWithConfigurationCacheAndCheck('revapiAcceptAllBreaks')
+        assert buildResult.task(':revapiAnalyze').outcome == TaskOutcome.SKIPPED
+        assert buildResult.task(':revapiAcceptAllBreaks').outcome == TaskOutcome.SKIPPED
     }
 
     def 'if there are no published versions of the library at all, ./gradlew revapiAcceptBreak doesnt fail'() {
@@ -342,9 +343,9 @@ class RevapiSpec extends IntegrationSpec {
         writeHelloWorld()
 
         then:
-        def executionResult = runTasksSuccessfully('revapiAcceptBreak', '--justification', 'foo', '--code', 'bar',
+        def buildResult = runTasksWithConfigurationCacheAndCheck('revapiAcceptBreak', '--justification', 'foo', '--code', 'bar',
                 '--old', 'old', '--new', 'new')
-        executionResult.wasExecuted(':revapiAcceptBreak')
+        assert buildResult.task(':revapiAcceptBreak').outcome in [TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE]
     }
 
     private File setupUnpublishedLibrary() {
@@ -506,13 +507,13 @@ class RevapiSpec extends IntegrationSpec {
         '''.stripIndent()
 
         when:
-        println runTasksSuccessfully("publish").standardOutput
+        println runTasksSuccessfully("publish").output
 
         writeToFile two, 'src/main/java/foo/Foo.java', originalJavaFile.text
         originalJavaFile.delete()
 
         and:
-        println runTasksSuccessfully("revapi").standardOutput
+        println runTasksSuccessfully("revapi").output
 
         and:
         def oneBuildGradle = new File(one, 'build.gradle')
@@ -565,12 +566,12 @@ class RevapiSpec extends IntegrationSpec {
         '''.stripIndent()
 
         and:
-        println runTasksSuccessfully("publish").standardOutput
+        println runTasksSuccessfully("publish").output
 
         javaFileInDependentProject.text = javaFileInDependentProject.text.replace('}', 'void foo();\n}')
 
         then:
-        println runTasksSuccessfully("revapi").standardOutput
+        println runTasksSuccessfully("revapi").output
     }
 
     def 'should not say there are breaks in api dependencies when nothing has changed'() {
@@ -608,10 +609,10 @@ class RevapiSpec extends IntegrationSpec {
         '''
 
         and:
-        println runTasksSuccessfully("publish").standardOutput
+        println runTasksSuccessfully("publish").output
 
         then:
-        println runTasksSuccessfully("revapi").standardOutput
+        println runTasksSuccessfully("revapi").output
     }
 
     def 'ignores scala classes'() {
@@ -665,10 +666,10 @@ class RevapiSpec extends IntegrationSpec {
             class Foo {}
         '''.stripIndent()
 
-        println runTasksSuccessfully("publish").standardOutput
+        println runTasksSuccessfully("publish").output
 
         then:
-        println runTasksSuccessfully("revapi").standardOutput
+        println runTasksSuccessfully("revapi").output
     }
 
     def 'detects breaks in groovy code'() {
@@ -705,7 +706,7 @@ class RevapiSpec extends IntegrationSpec {
             }
         '''.stripIndent()
 
-        println runTasksSuccessfully("publish").standardOutput
+        println runTasksWithConfigurationCache("publish").output
 
         and:
         writeToFile groovyFile, '''
@@ -714,11 +715,11 @@ class RevapiSpec extends IntegrationSpec {
         '''.stripIndent()
 
         then:
-        def stderr = runRevapiExpectingFailure()
+        def output = runRevapiExpectingFailure()
 
-        assert stderr.contains('java.method.removed')
-        assert stderr.contains('method java.lang.String foo.Foo::getSomeProperty()')
-        assert stderr.contains('method void foo.Foo::setSomeProperty(java.lang.String)')
+        assert output.contains('java.method.removed')
+        assert output.contains('method java.lang.String foo.Foo::getSomeProperty()')
+        assert output.contains('method void foo.Foo::setSomeProperty(java.lang.String)')
     }
 
     def 'does not throw exception when baseline-circleci is applied before this plugin'() {
@@ -766,8 +767,8 @@ class RevapiSpec extends IntegrationSpec {
         """.stripIndent()
 
         then:
-        runTasksSuccessfully('revapi').wasExecuted('revapiAnalyze')
-        runTasksSuccessfully('revapi').wasUpToDate('revapiAnalyze')
+        assert runTasksSuccessfully('revapi').task(':revapiAnalyze').outcome == TaskOutcome.SUCCESS
+        assert runTasksSuccessfully('revapi').task(':revapiAnalyze').outcome == TaskOutcome.UP_TO_DATE
     }
 
     def 'is not up to date when public (not private) api has changed'() {
@@ -796,7 +797,7 @@ class RevapiSpec extends IntegrationSpec {
         '''.stripIndent()
 
         then:
-        runTasksSuccessfully('revapi').wasExecuted('revapiAnalyze')
+        assert runTasksSuccessfully('revapi').task(':revapiAnalyze').outcome == TaskOutcome.SUCCESS
 
         writeToFile javaFile, '''
             public class Foo {
@@ -805,7 +806,7 @@ class RevapiSpec extends IntegrationSpec {
             }
         '''.stripIndent()
 
-        runTasksSuccessfully('revapi').wasUpToDate('revapiAnalyze')
+        assert runTasksSuccessfully('revapi').task(':revapiAnalyze').outcome == TaskOutcome.UP_TO_DATE
 
         writeToFile javaFile, '''
             public class Foo {
@@ -814,7 +815,7 @@ class RevapiSpec extends IntegrationSpec {
             }
         '''.stripIndent()
 
-        runTasksSuccessfully('revapi').wasExecuted('revapiAnalyze')
+        assert runTasksSuccessfully('revapi').task(':revapiAnalyze').outcome == TaskOutcome.SUCCESS
     }
 
     def 'compatible with gradle-shadow-jar'() {
@@ -847,12 +848,12 @@ class RevapiSpec extends IntegrationSpec {
         '''.stripIndent()
 
         and:
-        println runTasksSuccessfully('publish').standardOutput
+        println runTasksSuccessfully('publish').output
 
         file(shadowedClass).delete()
 
         then:
-        println runTasksSuccessfully('revapi').standardOutput
+        println runTasksSuccessfully('revapi').output
     }
 
     def 'changing a protected method in an immutables class is not a break'() {
@@ -965,16 +966,15 @@ class RevapiSpec extends IntegrationSpec {
         writeOutImmutablesClass { it.oldText }
 
         and:
-        runTasksSuccessfully('publish')
+        runTasksWithConfigurationCache('publish')
 
         writeOutImmutablesClass { it.newText }
 
         then:
-        def executionResult = runTasks('revapi')
-        println executionResult.standardError
-        !executionResult.success
+        def buildResult = runTasksAndFail('revapi')
+        println buildResult.output
 
-        def errorMessage = executionResult.failure.cause.cause.message
+        def errorMessage = buildResult.output
         errorMessage.contains 'There were Java public API/ABI breaks reported by revapi:'
 
         for (MethodChange methodChange : methodChanges) {
@@ -1086,7 +1086,7 @@ class RevapiSpec extends IntegrationSpec {
         runTasksSuccessfully('compileConjure')
 
         then:
-        runTasksWithFailure(':api-jersey:revapi')
+        runTasksAndFail(':api-jersey:revapi')
         def jerseyJunit = new File(projectDir, 'api-jersey/build/junit-reports/revapi/revapi-api-jersey.xml').text
 
         assert jerseyJunit.contains('java.class.removed-interface services.RenamedService')
@@ -1097,7 +1097,7 @@ class RevapiSpec extends IntegrationSpec {
         assert !jerseyJunit.contains('services.TestService::renamedToSomethingElse()')
         assert !jerseyJunit.contains('java.annotation.attributeValueChanged')
 
-        runTasksWithFailure(':api-retrofit:revapi')
+        runTasksAndFail(':api-retrofit:revapi')
         def retrofitJunit = new File(projectDir, 'api-retrofit/build/junit-reports/revapi/revapi-api-retrofit.xml').text
 
         assert retrofitJunit.contains('java.class.removed-interface services.RenamedServiceRetrofit')
@@ -1184,10 +1184,9 @@ class RevapiSpec extends IntegrationSpec {
     }
 
     private String runRevapiExpectingFailure() {
-        ExecutionResult executionResult = runTasksWithFailure("revapi")
-        println executionResult.standardOutput
-        println executionResult.standardError
-        return executionResult.standardError
+        BuildResult buildResult = runTasksAndFail("revapi")
+        println buildResult.output
+        return buildResult.output
     }
 
     private void andJunitXmlToHaveBeenProduced(String projectName) {
@@ -1196,22 +1195,11 @@ class RevapiSpec extends IntegrationSpec {
         assert junitOutput.text.contains("java.class.removed")
     }
 
-    @Override
-    ExecutionResult runTasksSuccessfully(String... tasks) {
-        ExecutionResult result = runTasks(tasks)
-        if (result.failure) {
-            println result.standardOutput
-            result.rethrowFailure()
-        }
-        result
-    }
-
-    @Override
-    ExecutionResult runTasksWithFailure(String... tasks) {
-        ExecutionResult result = runTasks(tasks)
-        if (result.success) {
-            println result.standardOutput
-            assert false
+    private BuildResult runTasksSuccessfully(String... tasks) {
+        BuildResult result = runTasksWithConfigurationCacheAndCheck(tasks)
+        if (result.task(':' + tasks[0])?.outcome == TaskOutcome.FAILED) {
+            println result.output
+            throw new RuntimeException("Task failed: ${result.output}")
         }
         result
     }

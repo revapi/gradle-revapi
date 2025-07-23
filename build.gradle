@@ -4,12 +4,14 @@ buildscript {
     repositories {
         mavenCentral() { metadataSources { mavenPom(); ignoreGradleMetadataRedirection() } }
         gradlePluginPortal() { metadataSources { mavenPom(); ignoreGradleMetadataRedirection() } }
+        mavenLocal()
     }
 
     dependencies {
         classpath 'com.palantir.jakartapackagealignment:jakarta-package-alignment:0.6.0'
         classpath 'com.palantir.gradle.externalpublish:gradle-external-publish-plugin:1.11.0'
         classpath 'com.palantir.javaformat:gradle-palantir-java-format:2.47.0'
+        classpath 'com.palantir.gradle.plugintesting:gradle-plugin-testing:999'
     }
 }
 
@@ -23,6 +25,7 @@ plugins {
 
 repositories {
     mavenCentral() { metadataSources { mavenPom(); ignoreGradleMetadataRedirection() } }
+    mavenLocal()
 }
 
 group 'org.revapi'
@@ -33,6 +36,7 @@ apply plugin: 'java-gradle-plugin'
 apply plugin: 'java-library'
 apply plugin: 'groovy'
 apply plugin: 'com.palantir.external-publish-jar'
+apply plugin: 'com.palantir.gradle-plugin-testing'
 
 sourceCompatibility = 1.8
 
@@ -48,10 +52,12 @@ dependencies {
 
     testImplementation platform('org.junit:junit-bom')
     testImplementation 'com.netflix.nebula:nebula-test'
-    testImplementation "org.junit.jupiter:junit-jupiter"
     testImplementation 'org.mockito:mockito-core'
     testImplementation 'org.assertj:assertj-core'
-    testRuntimeOnly "org.junit.vintage:junit-vintage-engine"
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-engine'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine'
 
     annotationProcessor "org.immutables:value"
     annotationProcessor "org.immutables:serial"
@@ -68,6 +74,7 @@ test {
     environment = System.getenv().entrySet().stream()
             .filter { entry -> entry.key != 'CIRCLE_TEST_REPORTS' }
             .collect(Collectors.toMap({ it.key }, { it.value }))
+    systemProperty 'ignoreDeprecations', 'true'
 }
 
 gradlePlugin {
