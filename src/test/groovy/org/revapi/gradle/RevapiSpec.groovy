@@ -293,19 +293,14 @@ class RevapiSpec extends IntegrationSpec {
         """.stripIndent()
 
         git.command 'git add .'
-        sleep(1001)
         git.command 'git commit -m 0.1.0'
-        sleep(1001)
         git.command 'git tag 0.1.0'
-        sleep(1001)
 
         runTasksSuccessfully('publish')
 
         and:
         git.command 'git commit --allow-empty -m publish-failed'
-        sleep(1001)
         git.command 'git tag 0.2.0'
-        sleep(1001)
 
         and:
         writeToFile javaFile, """
@@ -313,7 +308,6 @@ class RevapiSpec extends IntegrationSpec {
         """.stripIndent()
 
         git.command 'git commit -am new-work'
-        sleep(1001)
 
         then:
         def standardError = runTasksWithFailure('revapi').standardError

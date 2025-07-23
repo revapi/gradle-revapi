@@ -39,7 +39,7 @@ public abstract class GitVersionUtils {
         return execute("git", "tag", "-l", "--merged", "HEAD^", "--sort=-committerdate")
                 .map(tagsResult -> {
                     if (tagsResult.exitCode() != 0 || tagsResult.stdout().isEmpty()) {
-                        return Stream.<String>empty();
+                        return Stream.empty();
                     }
 
                     return Arrays.stream(tagsResult.stdout().split("\n"))
@@ -53,9 +53,10 @@ public abstract class GitVersionUtils {
             return false;
         }
 
-        GitResult result = execute("git", "rev-parse", "--verify", "--quiet", "0.0.0^").get();
-        boolean parentDoesNotExist = result.exitCode() != 0;
-        return parentDoesNotExist;
+        return execute("git", "rev-parse", "--verify", "--quiet", "0.0.0^")
+                        .get()
+                        .exitCode()
+                != 0;
     }
 
     private static String stripVFromTag(String tag) {
@@ -94,18 +95,6 @@ public abstract class GitVersionUtils {
         String stderr();
 
         List<String> command();
-
-        default String stdoutOrThrowIfNonZero() {
-            if (exitCode() == 0) {
-                return stdout();
-            }
-
-            throw new RuntimeException("Failed running command:\n"
-                    + "\tCommand:" + command() + "\n"
-                    + "\tExit code: " + exitCode() + "\n"
-                    + "\tStdout:" + stdout() + "\n"
-                    + "\tStderr:" + stderr() + "\n");
-        }
 
         class Builder extends ImmutableGitResult.Builder {}
 
