@@ -69,14 +69,10 @@ class GitVersionUtilsSpec extends AbstractProjectSpec {
         when:
         git.command 'git commit --allow-empty -m "First"'
         git.command 'git tag 1'
-        // need to sleep for at least a second so each commit is in its own timestamp to ensure sort order is correct
-        sleep(1001)
         git.command 'git commit --allow-empty -m "Second"'
         git.command 'git tag 2'
-        sleep(1001)
         git.command 'git commit --allow-empty -m "Third"'
         git.command 'git tag 3'
-        sleep(1001)
 
         git.command 'git commit --allow-empty -m "Fourth"'
         git.command 'git tag 4'
@@ -118,6 +114,6 @@ class GitVersionUtilsSpec extends AbstractProjectSpec {
 
     private List<String> previousGitTags() {
         GitVersionUtils utils = getProject().objects.newInstance(GitVersionUtils.class)
-        utils.previousGitTags().get().collect(Collectors.toList())
+        utils.previousGitTags().collect(Collectors.toList())
     }
 }
