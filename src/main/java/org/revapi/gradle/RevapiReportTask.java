@@ -27,56 +27,46 @@ import java.util.HashMap;
 import java.util.Map;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
 import org.revapi.gradle.config.Justification;
 
-public class RevapiReportTask extends DefaultTask {
-    private final RegularFileProperty analysisResultsFile =
-            getProject().getObjects().fileProperty();
-    private final RegularFileProperty junitOutputFile =
-            getProject().getObjects().fileProperty();
+public abstract class RevapiReportTask extends DefaultTask {
+
+    @Internal
+    protected abstract Property<String> getAcceptAllBreaksTaskPath();
+
+    @Internal
+    protected abstract Property<String> getAcceptAllBreaksProjectTaskPath();
 
     @InputFile
-    public final RegularFileProperty getAnalysisResultsFile() {
-        return analysisResultsFile;
-    }
+    protected abstract RegularFileProperty getAnalysisResultsFile();
 
     @OutputFile
-    public final RegularFileProperty getJunitOutputFile() {
-        return junitOutputFile;
-    }
+    protected abstract RegularFileProperty getJunitOutputFile();
 
     @TaskAction
     public final void reportBreaks() throws Exception {
         AnalysisResults results =
-                AnalysisResults.fromFile(analysisResultsFile.getAsFile().get());
+                AnalysisResults.fromFile(getAnalysisResultsFile().getAsFile().get());
 
         Configuration freeMarkerConfiguration = createFreeMarkerConfiguration();
         Map<String, Object> templateData = new HashMap<>();
         templateData.put("results", results);
-        templateData.put(
-                "acceptBreakTask",
-                getProject()
-                        .getTasks()
-                        .withType(RevapiAcceptBreakTask.class)
-                        .getByName(RevapiPlugin.ACCEPT_BREAK_TASK_NAME)
-                        .getPath());
+        templateData.put("acceptBreakTask", getAcceptAllBreaksTaskPath().get());
         templateData.put(
                 "acceptAllBreaksProjectTask",
-                getProject()
-                        .getTasks()
-                        .withType(RevapiAcceptAllBreaksTask.class)
-                        .getByName(RevapiPlugin.ACCEPT_ALL_BREAKS_TASK_NAME)
-                        .getPath());
+                getAcceptAllBreaksProjectTaskPath().get());
         templateData.put("acceptAllBreaksEverywhereTask", RevapiPlugin.ACCEPT_ALL_BREAKS_TASK_NAME);
         templateData.put("explainWhy", Justification.YOU_MUST_ENTER_JUSTIFICATION);
 
         Template junitTemplate = freeMarkerConfiguration.getTemplate("gradle-revapi-junit-template.ftl");
         junitTemplate.process(
                 templateData,
-                Files.newBufferedWriter(junitOutputFile.getAsFile().get().toPath(), StandardCharsets.UTF_8));
+                Files.newBufferedWriter(getJunitOutputFile().getAsFile().get().toPath(), StandardCharsets.UTF_8));
 
         Template textTemplate = freeMarkerConfiguration.getTemplate("gradle-revapi-text-template.ftl");
         StringWriter textOutputWriter = new StringWriter();

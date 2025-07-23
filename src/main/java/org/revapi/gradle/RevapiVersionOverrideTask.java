@@ -18,12 +18,13 @@ package org.revapi.gradle;
 
 import org.gradle.api.DefaultTask;
 import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.options.Option;
 import org.revapi.gradle.config.GroupNameVersion;
 
-public class RevapiVersionOverrideTask extends DefaultTask {
+public abstract class RevapiVersionOverrideTask extends DefaultTask {
     public static final String REPLACEMENT_VERSION_OPTION = "replacement-version";
 
     private final Property<ConfigManager> configManager =
@@ -31,9 +32,8 @@ public class RevapiVersionOverrideTask extends DefaultTask {
     private final Property<String> replacementVersion =
             getProject().getObjects().property(String.class);
 
-    public RevapiVersionOverrideTask() {
-        getOutputs().upToDateWhen(_ignored -> false);
-    }
+    @Input
+    protected abstract Property<GroupNameVersion> getGroupNameVersion();
 
     @Internal
     final Property<ConfigManager> getConfigManager() {
@@ -53,10 +53,7 @@ public class RevapiVersionOverrideTask extends DefaultTask {
 
         configManager
                 .get()
-                .modifyConfigFile(config -> config.addVersionOverride(oldGroupNameVersion(), replacementVersion.get()));
-    }
-
-    private GroupNameVersion oldGroupNameVersion() {
-        return getProject().getExtensions().getByType(RevapiExtension.class).oldGroupNameVersion();
+                .modifyConfigFile(config ->
+                        config.addVersionOverride(getGroupNameVersion().get(), replacementVersion.get()));
     }
 }

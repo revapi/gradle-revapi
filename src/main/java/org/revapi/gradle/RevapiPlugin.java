@@ -20,6 +20,7 @@ import java.io.File;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.gradle.api.DefaultTask;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
@@ -108,6 +109,30 @@ public final class RevapiPlugin implements Plugin<Project> {
 
                     task.getAnalysisResultsFile().set(new File(project.getBuildDir(), "revapi/revapi-results.json"));
 
+                    task.getProjectName().set(project.getName());
+                    task.getIsConjure()
+                            .set(Optional.ofNullable(project.getParent())
+                                    .map(parentProject ->
+                                            parentProject.getPluginManager().hasPlugin("com.palantir.conjure"))
+                                    .orElse(false));
+
+                    task.onlyIf(oldApiIsPresent);
+                });
+
+        TaskProvider<RevapiAcceptBreakTask> acceptBreakTaskTaskProvider = project.getTasks()
+                .register(ACCEPT_BREAK_TASK_NAME, RevapiAcceptBreakTask.class, task -> {
+                    task.getConfigManager().set(configManager);
+                    task.getGroupNameVersion().set(project.getProviders().provider(extension::oldGroupNameVersion));
+                    task.doNotTrackState("This task should always run.");
+                });
+
+        TaskProvider<RevapiAcceptAllBreaksTask> acceptAllBreaksProjectTaskProvider = project.getTasks()
+                .register(ACCEPT_ALL_BREAKS_TASK_NAME, RevapiAcceptAllBreaksTask.class, task -> {
+                    task.dependsOn(analyzeTask);
+
+                    task.getOldGroupNameVersion().set(project.getProviders().provider(extension::oldGroupNameVersion));
+                    task.getConfigManager().set(configManager);
+                    task.getAnalysisResultsFile().set(analyzeTask.flatMap(RevapiAnalyzeTask::getAnalysisResultsFile));
                     task.onlyIf(oldApiIsPresent);
                 });
 
@@ -116,27 +141,19 @@ public final class RevapiPlugin implements Plugin<Project> {
                     task.dependsOn(analyzeTask);
                     task.getAnalysisResultsFile().set(analyzeTask.flatMap(RevapiAnalyzeTask::getAnalysisResultsFile));
                     task.getJunitOutputFile().set(junitOutput(project));
+                    task.getAcceptAllBreaksTaskPath().set(acceptBreakTaskTaskProvider.map(DefaultTask::getPath));
+                    task.getAcceptAllBreaksProjectTaskPath()
+                            .set(acceptAllBreaksProjectTaskProvider.map(DefaultTask::getPath));
 
                     task.onlyIf(oldApiIsPresent);
                 });
 
         project.getTasks().findByName(LifecycleBasePlugin.CHECK_TASK_NAME).dependsOn(reportTask);
 
-        project.getTasks().register(ACCEPT_ALL_BREAKS_TASK_NAME, RevapiAcceptAllBreaksTask.class, task -> {
-            task.dependsOn(analyzeTask);
-
-            task.getOldGroupNameVersion().set(project.getProviders().provider(extension::oldGroupNameVersion));
-            task.getConfigManager().set(configManager);
-            task.getAnalysisResultsFile().set(analyzeTask.flatMap(RevapiAnalyzeTask::getAnalysisResultsFile));
-            task.onlyIf(oldApiIsPresent);
-        });
-
         project.getTasks().register(VERSION_OVERRIDE_TASK_NAME, RevapiVersionOverrideTask.class, task -> {
             task.getConfigManager().set(configManager);
-        });
-
-        project.getTasks().register(ACCEPT_BREAK_TASK_NAME, RevapiAcceptBreakTask.class, task -> {
-            task.getConfigManager().set(configManager);
+            task.getGroupNameVersion().set(project.getProviders().provider(extension::oldGroupNameVersion));
+            task.doNotTrackState("This task should always run.");
         });
     }
 

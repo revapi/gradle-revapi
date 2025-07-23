@@ -125,7 +125,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
 
         then:
 
-        def buildResult = runTasksWithConfigurationCacheAndCheck('revapi')
+        def buildResult = runTasksSuccessfully('revapi')
         println buildResult.output
         if (buildResult.task(':revapi').outcome != TaskOutcome.SUCCESS) {
             throw new RuntimeException("Task failed: ${buildResult.output}")
@@ -150,7 +150,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         """.stripIndent()
 
         then:
-        runTasksSuccessfully("revapiAcceptAllBreaks", "--justification", "fight me")
+        runTasksWithConfigurationCache("revapiAcceptAllBreaks", "--justification", "fight me")
     }
 
     def 'does not error out when project has a version greater than the "old version"'() {
@@ -253,7 +253,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         """.stripIndent()
 
         then:
-        def buildResult = runTasksWithConfigurationCacheAndCheck('revapi')
+        def buildResult = runTasksSuccessfully('revapi')
         assert buildResult.task(':revapiAnalyze').outcome == TaskOutcome.SKIPPED
         assert buildResult.task(':revapi').outcome == TaskOutcome.SKIPPED
     }
@@ -272,7 +272,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
 
         buildFile << """
             plugins {
-                id 'com.palantir.git-version' version '3.1.0'
+                id 'com.palantir.git-version' version '4.0.0'
             }
 
             apply plugin: '${TestConstants.PLUGIN_NAME}'
@@ -297,7 +297,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         git.command 'git commit -m 0.1.0'
         git.command 'git tag 0.1.0'
 
-        runTasksSuccessfully('publish')
+        runTasksWithConfigurationCache('publish')
 
         and:
         git.command 'git commit --allow-empty -m publish-failed'
@@ -321,7 +321,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         writeHelloWorld()
 
         then:
-        def buildResult = runTasksWithConfigurationCacheAndCheck('revapi')
+        def buildResult = runTasksSuccessfully('revapi')
         assert buildResult.task(':revapiAnalyze').outcome == TaskOutcome.SKIPPED
         assert buildResult.task(':revapi').outcome == TaskOutcome.SKIPPED
     }
@@ -332,7 +332,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         writeHelloWorld()
 
         then:
-        def buildResult = runTasksWithConfigurationCacheAndCheck('revapiAcceptAllBreaks')
+        def buildResult = runTasksSuccessfully('revapiAcceptAllBreaks')
         assert buildResult.task(':revapiAnalyze').outcome == TaskOutcome.SKIPPED
         assert buildResult.task(':revapiAcceptAllBreaks').outcome == TaskOutcome.SKIPPED
     }
@@ -343,7 +343,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         writeHelloWorld()
 
         then:
-        def buildResult = runTasksWithConfigurationCacheAndCheck('revapiAcceptBreak', '--justification', 'foo', '--code', 'bar',
+        def buildResult = runTasksSuccessfully('revapiAcceptBreak', '--justification', 'foo', '--code', 'bar',
                 '--old', 'old', '--new', 'new')
         assert buildResult.task(':revapiAcceptBreak').outcome in [TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE]
     }
@@ -418,7 +418,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
 
         and:
         !revapiYml.exists()
-        runTasksSuccessfully("revapiAcceptAllBreaks", "--justification", "it's all good :)")
+        runTasksWithConfigurationCache("revapiAcceptAllBreaks", "--justification", "it's all good :)")
         revapiYml.text.contains('java.class.removed')
 
         then:
@@ -736,7 +736,13 @@ class RevapiSpec extends ConfigurationCacheSpec {
                 }
             
                 dependencies {
-                    classpath 'com.palantir.baseline:gradle-baseline-java:5.61.0'
+                    classpath 'com.palantir.baseline:gradle-baseline-java:6.48.0'
+                }
+            }
+            
+            allprojects {
+                repositories {
+                    mavenCentral()
                 }
             }
 
