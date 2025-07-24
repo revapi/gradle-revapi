@@ -311,7 +311,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         git.command 'git commit -am new-work'
 
         then:
-        def buildResult = runTasksAndFail('revapi')
+        def buildResult = runTasksWithFailure('revapi')
         assert buildResult.output.contains('willBeRemoved')
     }
 
@@ -977,7 +977,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         writeOutImmutablesClass { it.newText }
 
         then:
-        def buildResult = runTasksAndFail('revapi')
+        def buildResult = runTasksWithFailure('revapi')
         println buildResult.output
 
         def errorMessage = buildResult.output
@@ -1092,7 +1092,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         runTasksSuccessfully('compileConjure')
 
         then:
-        runTasksAndFail(':api-jersey:revapi')
+        runTasksWithFailure(':api-jersey:revapi')
         def jerseyJunit = new File(projectDir, 'api-jersey/build/junit-reports/revapi/revapi-api-jersey.xml').text
 
         assert jerseyJunit.contains('java.class.removed-interface services.RenamedService')
@@ -1103,7 +1103,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         assert !jerseyJunit.contains('services.TestService::renamedToSomethingElse()')
         assert !jerseyJunit.contains('java.annotation.attributeValueChanged')
 
-        runTasksAndFail(':api-retrofit:revapi')
+        runTasksWithFailure(':api-retrofit:revapi')
         def retrofitJunit = new File(projectDir, 'api-retrofit/build/junit-reports/revapi/revapi-api-retrofit.xml').text
 
         assert retrofitJunit.contains('java.class.removed-interface services.RenamedServiceRetrofit')
@@ -1190,7 +1190,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
     }
 
     private String runRevapiExpectingFailure() {
-        BuildResult buildResult = runTasksAndFail("revapi")
+        BuildResult buildResult = runTasksWithFailure("revapi")
         println buildResult.output
         return buildResult.output
     }
@@ -1206,6 +1206,15 @@ class RevapiSpec extends ConfigurationCacheSpec {
         if (result.task(':' + tasks[0])?.outcome == TaskOutcome.FAILED) {
             println result.output
             throw new RuntimeException("Task failed: ${result.output}")
+        }
+        result
+    }
+
+    private BuildResult runTasksWithFailure(String... tasks) {
+        BuildResult result = runTasksAndFailWithConfigurationCache(tasks)
+        if (result.task(':' + tasks[0])?.outcome == TaskOutcome.SUCCESS) {
+            println result.output
+            throw new RuntimeException("Task succeded: ${result.output}")
         }
         result
     }
