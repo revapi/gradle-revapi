@@ -94,7 +94,7 @@ public abstract class RevapiAnalyzeTask extends DefaultTask {
                                 "gradle-revapi-results.ftl",
                                 getAnalysisResultsFile().getAsFile().get()),
                 revapiIgnores(),
-                ConjureProjectFilters.forProject(
+                ConjureProjectFilters.from(
                         getProjectName().get(), getIsConjure().get()),
                 ImmutablesFilter.CONFIG);
 

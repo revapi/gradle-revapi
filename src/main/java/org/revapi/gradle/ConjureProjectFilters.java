@@ -28,7 +28,7 @@ final class ConjureProjectFilters {
 
     private ConjureProjectFilters() {}
 
-    public static RevapiConfig forProject(String projectName, boolean isConjure) {
+    public static RevapiConfig from(String projectName, boolean isConjure) {
         if (!isConjure) {
             return RevapiConfig.empty();
         }
