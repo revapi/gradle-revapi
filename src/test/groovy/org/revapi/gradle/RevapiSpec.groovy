@@ -507,7 +507,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         '''.stripIndent()
 
         when:
-        println runTasksSuccessfully("publish").output
+        println runTasksWithConfigurationCache("publish").output
 
         writeToFile two, 'src/main/java/foo/Foo.java', originalJavaFile.text
         originalJavaFile.delete()
@@ -566,7 +566,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         '''.stripIndent()
 
         and:
-        println runTasksSuccessfully("publish").output
+        println runTasksWithConfigurationCache("publish").output
 
         javaFileInDependentProject.text = javaFileInDependentProject.text.replace('}', 'void foo();\n}')
 
@@ -609,7 +609,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         '''
 
         and:
-        println runTasksSuccessfully("publish").output
+        println runTasksWithConfigurationCache("publish").output
 
         then:
         println runTasksSuccessfully("revapi").output
@@ -666,7 +666,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
             class Foo {}
         '''.stripIndent()
 
-        println runTasksSuccessfully("publish").output
+        println runTasksWithConfigurationCache("publish").output
 
         then:
         println runTasksSuccessfully("revapi").output
