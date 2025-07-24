@@ -345,7 +345,7 @@ class RevapiSpec extends ConfigurationCacheSpec {
         then:
         def buildResult = runTasksSuccessfully('revapiAcceptBreak', '--justification', 'foo', '--code', 'bar',
                 '--old', 'old', '--new', 'new')
-        assert buildResult.task(':revapiAcceptBreak').outcome in [TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE]
+        assert buildResult.task(':revapiAcceptBreak').outcome == TaskOutcome.SUCCESS
     }
 
     private File setupUnpublishedLibrary() {
