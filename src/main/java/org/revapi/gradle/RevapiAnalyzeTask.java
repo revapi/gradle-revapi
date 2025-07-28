@@ -42,63 +42,40 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @CacheableTask
-public class RevapiAnalyzeTask extends DefaultTask {
+public abstract class RevapiAnalyzeTask extends DefaultTask {
     private static final Logger log = LoggerFactory.getLogger(RevapiAnalyzeTask.class);
 
-    private final SetProperty<AcceptedBreak> acceptedBreaks =
-            getProject().getObjects().setProperty(AcceptedBreak.class);
-    private final Property<FileCollection> newApiJars =
-            getProject().getObjects().property(FileCollection.class);
-    private final Property<FileCollection> newApiDependencyJars =
-            getProject().getObjects().property(FileCollection.class);
-    private final Property<FileCollection> jarsToReportBreaks =
-            getProject().getObjects().property(FileCollection.class);
-    private final Property<FileCollection> oldApiJars =
-            getProject().getObjects().property(FileCollection.class);
-    private final Property<FileCollection> oldApiDependencyJars =
-            getProject().getObjects().property(FileCollection.class);
-    private final RegularFileProperty analysisResultsFile =
-            getProject().getObjects().fileProperty();
+    @Input
+    protected abstract SetProperty<AcceptedBreak> getAcceptedBreaks();
 
     @Input
-    public final SetProperty<AcceptedBreak> getAcceptedBreaks() {
-        return acceptedBreaks;
-    }
+    protected abstract Property<String> getProjectName();
+
+    @Input
+    protected abstract Property<Boolean> getIsConjure();
 
     @CompileClasspath
-    public final Property<FileCollection> getNewApiJars() {
-        return newApiJars;
-    }
+    protected abstract Property<FileCollection> getNewApiJars();
 
     @CompileClasspath
-    public final Property<FileCollection> getNewApiDependencyJars() {
-        return newApiDependencyJars;
-    }
+    protected abstract Property<FileCollection> getNewApiDependencyJars();
 
     @CompileClasspath
-    public final Property<FileCollection> getJarsToReportBreaks() {
-        return jarsToReportBreaks;
-    }
+    protected abstract Property<FileCollection> getJarsToReportBreaks();
 
     @CompileClasspath
-    public final Property<FileCollection> getOldApiJars() {
-        return oldApiJars;
-    }
+    protected abstract Property<FileCollection> getOldApiJars();
 
     @CompileClasspath
-    public final Property<FileCollection> getOldApiDependencyJars() {
-        return oldApiDependencyJars;
-    }
+    protected abstract Property<FileCollection> getOldApiDependencyJars();
 
     @OutputFile
-    public final RegularFileProperty getAnalysisResultsFile() {
-        return analysisResultsFile;
-    }
+    protected abstract RegularFileProperty getAnalysisResultsFile();
 
     @TaskAction
     protected final void runRevapi() throws Exception {
-        API oldApi = api(oldApiJars, oldApiDependencyJars);
-        API newApi = api(newApiJars, newApiDependencyJars);
+        API oldApi = api(getOldApiJars(), getOldApiDependencyJars());
+        API newApi = api(getNewApiJars(), getNewApiDependencyJars());
 
         log.info("Old API: {}", oldApi);
         log.info("New API: {}", newApi);
@@ -111,13 +88,14 @@ public class RevapiAnalyzeTask extends DefaultTask {
                 .build();
 
         RevapiConfig revapiConfig = RevapiConfig.mergeAll(
-                RevapiConfig.defaults(jarsToReportBreaks.get()),
+                RevapiConfig.defaults(getJarsToReportBreaks().get()),
                 RevapiConfig.empty()
                         .withTextReporter(
                                 "gradle-revapi-results.ftl",
-                                analysisResultsFile.getAsFile().get()),
+                                getAnalysisResultsFile().getAsFile().get()),
                 revapiIgnores(),
-                ConjureProjectFilters.forProject(getProject()),
+                ConjureProjectFilters.from(
+                        getProjectName().get(), getIsConjure().get()),
                 ImmutablesFilter.CONFIG);
 
         log.info("revapi config:\n{}", revapiConfig.configAsString());
@@ -133,7 +111,7 @@ public class RevapiAnalyzeTask extends DefaultTask {
     }
 
     private RevapiConfig revapiIgnores() {
-        return RevapiConfig.empty().withIgnoredBreaks(acceptedBreaks.get());
+        return RevapiConfig.empty().withIgnoredBreaks(getAcceptedBreaks().get());
     }
 
     private API api(Provider<FileCollection> apiJars, Provider<FileCollection> dependencyJars) {

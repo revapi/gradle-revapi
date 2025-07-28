@@ -18,45 +18,34 @@ package org.revapi.gradle;
 
 import org.gradle.api.DefaultTask;
 import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.options.Option;
 import org.revapi.gradle.config.GroupNameVersion;
 
-public class RevapiVersionOverrideTask extends DefaultTask {
+public abstract class RevapiVersionOverrideTask extends DefaultTask {
     public static final String REPLACEMENT_VERSION_OPTION = "replacement-version";
 
-    private final Property<ConfigManager> configManager =
-            getProject().getObjects().property(ConfigManager.class);
-    private final Property<String> replacementVersion =
-            getProject().getObjects().property(String.class);
-
-    public RevapiVersionOverrideTask() {
-        getOutputs().upToDateWhen(_ignored -> false);
-    }
+    @Input
+    protected abstract Property<GroupNameVersion> getGroupNameVersion();
 
     @Internal
-    final Property<ConfigManager> getConfigManager() {
-        return configManager;
-    }
+    protected abstract Property<ConfigManager> getConfigManager();
 
+    @Input
     @Option(option = REPLACEMENT_VERSION_OPTION, description = "The version to use instead of the default oldVersion")
-    public final void setReplacementVersion(String replacementVersionValue) {
-        replacementVersion.set(replacementVersionValue);
-    }
+    public abstract Property<String> getReplacementVersion();
 
     @TaskAction
     public final void addVersionOverride() {
-        if (!replacementVersion.isPresent()) {
-            throw new RuntimeException("Please supply the --" + REPLACEMENT_VERSION_OPTION + " param this task");
+        if (!getReplacementVersion().isPresent()) {
+            throw new RuntimeException("Please supply the --" + REPLACEMENT_VERSION_OPTION + " param to this task");
         }
 
-        configManager
+        getConfigManager()
                 .get()
-                .modifyConfigFile(config -> config.addVersionOverride(oldGroupNameVersion(), replacementVersion.get()));
-    }
-
-    private GroupNameVersion oldGroupNameVersion() {
-        return getProject().getExtensions().getByType(RevapiExtension.class).oldGroupNameVersion();
+                .modifyConfigFile(config -> config.addVersionOverride(
+                        getGroupNameVersion().get(), getReplacementVersion().get()));
     }
 }

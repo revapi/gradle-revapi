@@ -18,7 +18,6 @@ package org.revapi.gradle;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.util.Optional;
-import org.gradle.api.Project;
 
 final class ConjureProjectFilters {
     private static final ArrayNode CHECKS_FOR_CLIENT_PROJECTS = RevapiConfig.createArrayNode()
@@ -29,16 +28,12 @@ final class ConjureProjectFilters {
 
     private ConjureProjectFilters() {}
 
-    public static RevapiConfig forProject(Project project) {
-        boolean isConjure = Optional.ofNullable(project.getParent())
-                .map(parentProject -> parentProject.getPluginManager().hasPlugin("com.palantir.conjure"))
-                .orElse(false);
-
+    public static RevapiConfig from(String projectName, boolean isConjure) {
         if (!isConjure) {
             return RevapiConfig.empty();
         }
 
-        return checksForProjectName(project.getName())
+        return checksForProjectName(projectName)
                 .map(checks -> RevapiConfig.empty().withExtension(CheckWhitelist.EXTENSION_ID, checks))
                 .orElseGet(RevapiConfig::empty);
     }

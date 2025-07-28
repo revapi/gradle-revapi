@@ -113,6 +113,7 @@ class GitVersionUtilsSpec extends AbstractProjectSpec {
     }
 
     private List<String> previousGitTags() {
-        GitVersionUtils.previousGitTags(getProject()).collect(Collectors.toList())
+        GitVersionUtils utils = getProject().objects.newInstance(GitVersionUtils.class)
+        utils.previousGitTags().collect(Collectors.toList())
     }
 }
