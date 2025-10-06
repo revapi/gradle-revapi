@@ -55,7 +55,7 @@ to need to override the artifact to compare against, you can do so:
 ```gradle
 revapi {
     oldGroup = '<artifact-group>'
-    oldNamed = '<artifact-name>'
+    oldName = '<artifact-name>'
     oldVersion = '<artifact-version>'
 }
 ```
