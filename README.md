@@ -46,6 +46,10 @@ there was a covariant return type change to `docker-compose-rule` (`ImmutableDoc
 which [caused ABI breaks in `docker-proxy-rule`](https://github.com/palantir/docker-proxy-rule/releases/tag/0.8.0),
 among projects.
 
+## Gradle compatibility
+
+This plugin is compatible with **Gradle 8** and **Gradle 9**.
+
 ## Configuration
 
 `gradle-revapi` should work out of the box for most uses cases once applied. By default it compares against the previous

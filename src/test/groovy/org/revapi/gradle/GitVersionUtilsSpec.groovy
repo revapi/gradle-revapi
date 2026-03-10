@@ -18,13 +18,16 @@ package org.revapi.gradle
 
 import java.util.stream.Collectors
 import nebula.test.AbstractProjectSpec
+import org.gradle.process.ExecOperations
 
 class GitVersionUtilsSpec extends AbstractProjectSpec {
     Git git
+    ExecOperations execOperations
 
     def setup() {
         git = new Git(ourProjectDir)
         git.initWithTestUser()
+        execOperations = project.objects.newInstance(RevapiPlugin.ExecOpsHolder).execOperations
     }
 
     def 'return nothing in a repo with no commits'() {
@@ -113,6 +116,6 @@ class GitVersionUtilsSpec extends AbstractProjectSpec {
     }
 
     private List<String> previousGitTags() {
-        GitVersionUtils.previousGitTags(getProject()).collect(Collectors.toList())
+        GitVersionUtils.previousGitTags(execOperations).collect(Collectors.toList())
     }
 }

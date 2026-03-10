@@ -20,10 +20,13 @@ import java.io.File;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
+import org.gradle.api.Action;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.artifacts.result.ComponentResult;
 import org.gradle.api.attributes.Usage;
@@ -34,6 +37,8 @@ import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.language.base.plugins.LifecycleBasePlugin;
+import org.gradle.process.ExecOperations;
+import org.gradle.util.GradleVersion;
 import org.revapi.gradle.ResolveOldApi.OldApi;
 import org.revapi.gradle.config.AcceptedBreak;
 import org.revapi.gradle.config.GroupAndName;
@@ -42,6 +47,15 @@ public final class RevapiPlugin implements Plugin<Project> {
     public static final String VERSION_OVERRIDE_TASK_NAME = "revapiVersionOverride";
     public static final String ACCEPT_BREAK_TASK_NAME = "revapiAcceptBreak";
     public static final String ACCEPT_ALL_BREAKS_TASK_NAME = "revapiAcceptAllBreaks";
+
+    private static final boolean GRADLE_9_OR_LATER =
+            GradleVersion.current().getBaseVersion().compareTo(GradleVersion.version("9.0")) >= 0;
+
+    /** Injectable helper to obtain {@link ExecOperations} from the Gradle service registry. */
+    public abstract static class ExecOpsHolder {
+        @Inject
+        public abstract ExecOperations getExecOperations();
+    }
 
     @Override
     public void apply(Project project) {
@@ -60,20 +74,18 @@ public final class RevapiPlugin implements Plugin<Project> {
                     // Creating a new configuration instead of using compileClasspath in order to ensure that we
                     // resolve jars and not classes directories (which is the default unless you set the LibraryElements
                     // attribute)
-                    Configuration revapiNewApi = project.getConfigurations().create("revapiNewApi", conf -> {
+                    Configuration revapiNewApi = createResolvableConfiguration(project, "revapiNewApi", conf -> {
                         conf.extendsFrom(
                                 project.getConfigurations().getByName(JavaPlugin.COMPILE_CLASSPATH_CONFIGURATION_NAME));
                         configureApiUsage(project, conf);
-                        conf.setCanBeConsumed(false);
                         conf.setVisible(false);
                     });
 
-                    Configuration revapiNewApiElements = project.getConfigurations()
-                            .create("revapiNewApiElements", conf -> {
+                    Configuration revapiNewApiElements =
+                            createResolvableConfiguration(project, "revapiNewApiElements", conf -> {
                                 conf.extendsFrom(project.getConfigurations()
                                         .getByName(JavaPlugin.API_ELEMENTS_CONFIGURATION_NAME));
                                 configureApiUsage(project, conf);
-                                conf.setCanBeConsumed(false);
                                 conf.setVisible(false);
                             });
 
@@ -106,7 +118,8 @@ public final class RevapiPlugin implements Plugin<Project> {
                             .map(project::files)
                             .orElseGet(project::files)));
 
-                    task.getAnalysisResultsFile().set(new File(project.getBuildDir(), "revapi/revapi-results.json"));
+                    task.getAnalysisResultsFile()
+                            .set(project.getLayout().getBuildDirectory().file("revapi/revapi-results.json"));
 
                     task.onlyIf(oldApiIsPresent);
                 });
@@ -177,9 +190,29 @@ public final class RevapiPlugin implements Plugin<Project> {
         return new File(project.getRootDir(), ".palantir/revapi.yml");
     }
 
+    /**
+     * Creates a resolvable, non-consumable configuration compatible with both Gradle 8 and 9.
+     * In Gradle 9, {@code Configuration.setCanBeConsumed} is removed, so we use
+     * {@code ConfigurationContainer.resolvable} when available.
+     */
+    @SuppressWarnings("deprecation")
+    private static Configuration createResolvableConfiguration(
+            Project project, String name, Action<? super Configuration> configureAction) {
+        ConfigurationContainer configurations = project.getConfigurations();
+        if (GRADLE_9_OR_LATER) {
+            return configurations.resolvable(name, configureAction).get();
+        }
+        return configurations.create(name, conf -> {
+            conf.setCanBeConsumed(false);
+            configureAction.execute(conf);
+        });
+    }
+
     private File junitOutput(Project project) {
         Optional<String> circleReportsDir = Optional.ofNullable(System.getenv("CIRCLE_TEST_REPORTS"));
-        File reportsDir = circleReportsDir.map(File::new).orElseGet(project::getBuildDir);
+        File reportsDir = circleReportsDir
+                .map(File::new)
+                .orElseGet(() -> project.getLayout().getBuildDirectory().getAsFile().get());
         return new File(reportsDir, "junit-reports/revapi/revapi-" + project.getName() + ".xml");
     }
 }

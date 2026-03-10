@@ -22,6 +22,7 @@ import org.gradle.api.Project;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
+import org.gradle.process.ExecOperations;
 import org.revapi.gradle.config.GroupAndName;
 import org.revapi.gradle.config.GroupNameVersion;
 import org.revapi.gradle.config.Version;
@@ -34,6 +35,9 @@ public class RevapiExtension {
     private final Provider<GroupAndName> oldGroupAndName;
 
     public RevapiExtension(Project project) {
+        ExecOperations execOperations =
+                project.getObjects().newInstance(RevapiPlugin.ExecOpsHolder.class).getExecOperations();
+
         this.oldGroup = project.getObjects().property(String.class);
         this.oldGroup.set(
                 project.getProviders().provider(() -> project.getGroup().toString()));
@@ -43,8 +47,9 @@ public class RevapiExtension {
 
         this.oldVersions = project.getObjects().listProperty(String.class);
         this.oldVersions.set(project.getProviders()
-                .provider(
-                        () -> GitVersionUtils.previousGitTags(project).limit(3).collect(Collectors.toList())));
+                .provider(() -> GitVersionUtils.previousGitTags(execOperations)
+                        .limit(3)
+                        .collect(Collectors.toList())));
 
         this.oldGroupAndName = project.provider(() ->
                 GroupAndName.builder().group(oldGroup.get()).name(oldName.get()).build());
